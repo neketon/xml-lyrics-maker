@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XML LYRICS MAKER</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>XML LYRICS MAKER</h1>
+      <p class="subtitle">Генератор анимированных субтитров для Alight Motion</p>
+    </header>
+
+    <section class="card">
+      <label for="xmlFile">1. XML-шаблон из Alight Motion</label>
+      <input type="file" id="xmlFile" accept=".xml,.amxml,application/xml,text/xml" />
+      <p class="hint">Шаблон должен содержать один текстовый слой (например, <code>&lt;text&gt;...&lt;content&gt;мы&lt;/content&gt;&lt;/text&gt;</code>). <a href="template-example.xml" download>Скачать пример</a></p>
+    </section>
+
+    <section class="card">
+      <label for="lyrics">2. Текст песни (каждая строка — новый «сброс»)</label>
+      <textarea id="lyrics" rows="10" placeholder="потому что любовь повсюду:&#10;в каждой клетке, в каждом звуке&#10;в истошном крике, в водосточном&#10;любви нет только в фильмах про&#10;любовь, твою любовь"></textarea>
+    </section>
+
+    <section class="card options">
+      <div>
+        <label for="framesPerWord">Кадров на чанк</label>
+        <input type="number" id="framesPerWord" value="10" min="1" max="120" />
+        <p class="hint">10 кадров @ 30 fps ≈ 333 мс</p>
+      </div>
+      <div>
+        <label for="shortWords">Короткие слова (через запятую)</label>
+        <input type="text" id="shortWords" value="в,во,на,и,а,но,с,со,к,ко,у,о,об,обо,по,за,из,изо,от,ото,до,же,ли,бы,не,ни,для,при,про,над,под,без,через,между,перед,или,либо" />
+        <p class="hint">Приклеиваются к следующему слову</p>
+      </div>
+    </section>
+
+    <section class="card actions">
+      <button id="generateBtn">Сгенерировать XML</button>
+      <button id="downloadBtn" disabled>Скачать XML</button>
+    </section>
+
+    <section class="card" id="previewCard" hidden>
+      <label>Предпросмотр</label>
+      <div id="preview" class="preview"></div>
+    </section>
+
+    <div id="status" class="status"></div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
