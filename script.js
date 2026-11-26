@@ -3,11 +3,80 @@
 const $ = (id) => document.getElementById(id);
 let generatedBlob = null;
 
+// ------------------------------------------------------------------
+// Встроенный шаблон по умолчанию (используется, если файл не загружен)
+// ------------------------------------------------------------------
+const DEFAULT_TEMPLATE = `<?xml version='1.0' encoding='UTF-8' ?>
+<!--
+Created by Alight Motion (http://alightmotion.com)
+Exported: 2026-11-25 11:25 PM
+6.2.61 (871)
+-->
+<scene title="Шаблон" width="1440" height="1080" exportWidth="1920" exportHeight="1080" bgcolor="#FF000000" totalTime="14233" fps="30" modifiedTime="1795638324506" amver="871" ffver="107" am="com.alightcreative.motion/6.2.61" amplatform="ios" precompose="dynamicResolution" retime="freeze">
+  <media uri="am-internal:///32FAA49D17E945F64998CA7EE36570884FCC9BD2.MP4" type="video/mp4" duration="18273" size="743292" fps="30" infoUpdated="1795269468790" width="768" height="576"/>
+  <audio id="1" startTime="0" endTime="14233" src="am-internal:///32FAA49D17E945F64998CA7EE36570884FCC9BD2.MP4"/>
+  <text id="2" label="Слой текста" startTime="0" endTime="14233" fillType="color" size="24.000000" font="imported?name=arialnarrow.ttf" wrapWidth="1182" align="center">
+    <transform>
+      <location value="718.173706,533.973694,0.000000"/>
+      <scale value="0.612521,0.662536"/>
+    </transform>
+    <effect id="com.alightcreative.effects.textspacing" locallyApplied="true">
+      <property name="linespacing" type="float" value="0.950000"/>
+    </effect>
+    <effect id="com.alightcreative.effects.pinchbulge2" locallyApplied="true">
+      <property name="radius" type="float" value="2.500000"/>
+      <property name="strength" type="float" value="0.350000"/>
+    </effect>
+    <effect id="com.alightcreative.effects.stretch2" locallyApplied="true">
+      <property name="scale" type="float" value="0.970000"/>
+    </effect>
+    <effect id="com.alightcreative.effects.stretch2" locallyApplied="true">
+      <property name="angle" type="float" value="90.000000"/>
+      <property name="scale" type="float" value="0.910000"/>
+    </effect>
+    <path-stroke direction="centered" end-size="1.5">
+      <color value="#FFFFFFFF"/>
+      <size value="0.000000"/>
+    </path-stroke>
+    <shadow direction="outside">
+      <opacity value="0.800000"/>
+      <size value="1.000000"/>
+      <hardness value="1.000000"/>
+      <offset value="-3.000000,-3.000000"/>
+    </shadow>
+    <content>мы</content>
+  </text>
+</scene>`;
+
 $('generateBtn').addEventListener('click', generate);
 $('downloadBtn').addEventListener('click', download);
+$('lowercaseBtn').addEventListener('click', toLowercase);
+$('downloadTemplateBtn').addEventListener('click', downloadTemplate);
 
 // ------------------------------------------------------------------
-// Главная функция
+// Кнопка: убрать заглавные буквы
+// ------------------------------------------------------------------
+function toLowercase() {
+  const ta = $('lyrics');
+  const before = ta.value;
+  if (!before) return;
+  // toLowerCase в JS корректно обрабатывает кириллицу, Ё, латиницу, I и т.д.
+  ta.value = before.toLowerCase();
+  // Вернуть фокус и поставить курсор в конец
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+// ------------------------------------------------------------------
+// Кнопка: скачать встроенный шаблон
+// ------------------------------------------------------------------
+function downloadTemplate() {
+  const blob = new Blob([DEFAULT_TEMPLATE], { type: 'application/xml' });
+  triggerDownload(blob, 'template-default.xml');
+}
+
+// ------------------------------------------------------------------
+// Главная функция генерации
 // ------------------------------------------------------------------
 async function generate() {
   const status = $('status');
@@ -17,11 +86,14 @@ async function generate() {
   $('downloadBtn').disabled = true;
 
   try {
-    // --- 1. Читаем входные данные ---
+    // --- 1. Входные данные ---
     const fileInput = $('xmlFile');
-    if (!fileInput.files.length) throw new Error('Загрузите XML-шаблон');
 
-    const xmlText = await fileInput.files[0].text();
+    // Если файл не загружен — берём встроенный шаблон
+    const xmlText = fileInput.files.length
+      ? await fileInput.files[0].text()
+      : DEFAULT_TEMPLATE;
+
     const lyricsText = $('lyrics').value.trim();
     if (!lyricsText) throw new Error('Введите текст песни');
 
@@ -42,7 +114,7 @@ async function generate() {
     const frameMs = 1000 / fps;
     const chunkMs = frameMs * framesPerChunk;
 
-    // --- 3. Находим слой-образец ---
+    // --- 3. Слой-образец ---
     const templateLayer = scene.querySelector('text');
     if (!templateLayer) throw new Error('В шаблоне нет <text>-слоя');
     if (!templateLayer.querySelector('content'))
@@ -57,7 +129,7 @@ async function generate() {
       return splitIntoChunks(words, shortWords);
     });
 
-    // --- 5. Генерируем описание слоёв ---
+    // --- 5. План слоёв ---
     const layers = [];
     let currentMs = 0;
     let layerId = nextLayerId(scene);
@@ -73,8 +145,7 @@ async function generate() {
       }
     }
 
-    // --- 6. Собираем новый XML ---
-    // Удаляем все старые <text>-слои
+    // --- 6. Собираем XML ---
     scene.querySelectorAll('text').forEach(t => t.remove());
 
     for (const layer of layers) {
@@ -87,11 +158,9 @@ async function generate() {
       scene.appendChild(node);
     }
 
-    // Обновляем длительность сцены
     const totalTime = layers.length ? layers[layers.length - 1].endTime + 1 : 0;
     scene.setAttribute('totalTime', String(totalTime));
 
-    // Синхронизируем audio.endTime (если он есть)
     const audio = scene.querySelector('audio');
     if (audio) {
       const audioEnd = parseInt(audio.getAttribute('endTime'), 10) || totalTime;
@@ -111,7 +180,10 @@ async function generate() {
     $('previewCard').hidden = false;
     $('downloadBtn').disabled = false;
 
-    status.textContent = `Готово: ${layers.length} слоёв, длительность ${(totalTime / 1000).toFixed(2)} с.`;
+    const usedDefault = !fileInput.files.length;
+    status.textContent =
+      `Готово: ${layers.length} слоёв, ${(totalTime / 1000).toFixed(2)} с.` +
+      (usedDefault ? ' (использован встроенный шаблон)' : '');
     status.className = 'status success';
   } catch (err) {
     console.error(err);
@@ -136,7 +208,6 @@ function splitIntoChunks(words, shortWords) {
       i += 1;
     }
   }
-  // Если последний чанк — одинокое короткое слово, склеиваем с предыдущим
   if (chunks.length > 1 && isShort(chunks[chunks.length - 1], shortWords)) {
     const last = chunks.pop();
     chunks[chunks.length - 1] += ' ' + last;
@@ -172,8 +243,19 @@ function escapeHtml(s) {
           .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // ------------------------------------------------------------------
-// Предпросмотр (упрощённый, без реального fps)
+// Предпросмотр
 // ------------------------------------------------------------------
 function renderPreview(layers) {
   const box = $('preview');
@@ -196,16 +278,9 @@ function renderPreview(layers) {
 }
 
 // ------------------------------------------------------------------
-// Скачивание
+// Скачивание сгенерированного
 // ------------------------------------------------------------------
 function download() {
   if (!generatedBlob) return;
-  const url = URL.createObjectURL(generatedBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'lyrics_animation.xml';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  triggerDownload(generatedBlob, 'lyrics_animation.xml');
 }
