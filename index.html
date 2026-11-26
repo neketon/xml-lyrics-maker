@@ -14,13 +14,21 @@
     </header>
 
     <section class="card">
-      <label for="xmlFile">1. XML-шаблон из Alight Motion</label>
+      <label for="xmlFile">1. XML-шаблон из Alight Motion <span class="badge">опционально</span></label>
       <input type="file" id="xmlFile" accept=".xml,.amxml,application/xml,text/xml" />
-      <p class="hint">Шаблон должен содержать один текстовый слой (например, <code>&lt;text&gt;...&lt;content&gt;мы&lt;/content&gt;&lt;/text&gt;</code>). <a href="template-example.xml" download>Скачать пример</a></p>
+      <p class="hint">
+        Если файл не загружен — используется встроенный шаблон по умолчанию.
+        <button type="button" id="downloadTemplateBtn" class="btn-link">Скачать встроенный шаблон</button>
+      </p>
     </section>
 
     <section class="card">
-      <label for="lyrics">2. Текст песни (каждая строка — новый «сброс»)</label>
+      <div class="label-row">
+        <label for="lyrics">2. Текст песни (каждая строка — новый «сброс»)</label>
+        <button type="button" id="lowercaseBtn" class="btn-secondary btn-sm" title="Убрать заглавные буквы">
+          aA → aa
+        </button>
+      </div>
       <textarea id="lyrics" rows="10" placeholder="потому что любовь повсюду:&#10;в каждой клетке, в каждом звуке&#10;в истошном крике, в водосточном&#10;любви нет только в фильмах про&#10;любовь, твою любовь"></textarea>
     </section>
 
