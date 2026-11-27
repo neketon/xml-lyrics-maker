@@ -148,5 +148,21 @@ button:disabled { background: #262636; color: #555; cursor: not-allowed; }
   vertical-align: middle;
   text-transform: lowercase;
 }
+/* --- Блок «Имя проекта» и info-статус --- */
+.inline-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.inline-row input[type="text"] { flex: 1; }
+.inline-row .btn-secondary {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 
+.status.info {
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+}
 
