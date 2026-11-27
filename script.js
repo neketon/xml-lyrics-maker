@@ -2,9 +2,10 @@
 
 const $ = (id) => document.getElementById(id);
 let generatedBlob = null;
+let lastXmlDoc = null;   // последний собранный XML-документ (для «Применить имя»)
 
 // ------------------------------------------------------------------
-// Встроенный шаблон по умолчанию (используется, если файл не загружен)
+// Встроенный шаблон по умолчанию
 // ------------------------------------------------------------------
 const DEFAULT_TEMPLATE = `<?xml version='1.0' encoding='UTF-8' ?>
 <!--
@@ -48,21 +49,44 @@ Exported: 2026-11-25 11:25 PM
   </text>
 </scene>`;
 
+// ------------------------------------------------------------------
+// Подписки на события
+// ------------------------------------------------------------------
 $('generateBtn').addEventListener('click', generate);
 $('downloadBtn').addEventListener('click', download);
 $('lowercaseBtn').addEventListener('click', toLowercase);
 $('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+$('applyNameBtn').addEventListener('click', applyProjectName);
+$('xmlFile').addEventListener('change', handleTemplateChange);
+
+// ------------------------------------------------------------------
+// Загрузка шаблона → подставляем title в поле
+// ------------------------------------------------------------------
+async function handleTemplateChange() {
+  const fi = $('xmlFile');
+  try {
+    if (!fi.files.length) {
+      const doc = new DOMParser().parseFromString(DEFAULT_TEMPLATE, 'application/xml');
+      const t = doc.querySelector('scene')?.getAttribute('title') || 'Шаблон';
+      $('projectName').value = t;
+      return;
+    }
+    const text = await fi.files[0].text();
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    const t = doc.querySelector('scene')?.getAttribute('title');
+    if (t) $('projectName').value = t;
+  } catch (_) {
+    // Тихо игнорируем — если файл битый, генерация всё равно покажет ошибку
+  }
+}
 
 // ------------------------------------------------------------------
 // Кнопка: убрать заглавные буквы
 // ------------------------------------------------------------------
 function toLowercase() {
   const ta = $('lyrics');
-  const before = ta.value;
-  if (!before) return;
-  // toLowerCase в JS корректно обрабатывает кириллицу, Ё, латиницу, I и т.д.
-  ta.value = before.toLowerCase();
-  // Вернуть фокус и поставить курсор в конец
+  if (!ta.value) return;
+  ta.value = ta.value.toLowerCase();
   ta.focus();
   ta.setSelectionRange(ta.value.length, ta.value.length);
 }
@@ -76,20 +100,32 @@ function downloadTemplate() {
 }
 
 // ------------------------------------------------------------------
+// Кнопка: применить имя к уже сгенерированному XML
+// ------------------------------------------------------------------
+function applyProjectName() {
+  const name = ($('projectName').value || '').trim();
+  if (!name) return showStatus('Введите имя проекта', 'error');
+  if (!lastXmlDoc) return showStatus('Сначала сгенерируйте XML — имя подставится автоматически', 'info');
+  const scene = lastXmlDoc.querySelector('scene');
+  if (!scene) return showStatus('В документе нет <scene>', 'error');
+
+  scene.setAttribute('title', name);
+  generatedBlob = serializeToBlob(lastXmlDoc);
+  $('downloadBtn').disabled = false;
+  showStatus(`Имя проекта изменено на «${name}»`, 'success');
+}
+
+// ------------------------------------------------------------------
 // Главная функция генерации
 // ------------------------------------------------------------------
 async function generate() {
-  const status = $('status');
-  status.textContent = '';
-  status.className = 'status';
   generatedBlob = null;
+  lastXmlDoc = null;
   $('downloadBtn').disabled = true;
 
   try {
     // --- 1. Входные данные ---
     const fileInput = $('xmlFile');
-
-    // Если файл не загружен — берём встроенный шаблон
     const xmlText = fileInput.files.length
       ? await fileInput.files[0].text()
       : DEFAULT_TEMPLATE;
@@ -97,6 +133,7 @@ async function generate() {
     const lyricsText = $('lyrics').value.trim();
     if (!lyricsText) throw new Error('Введите текст песни');
 
+    const projectName = ($('projectName').value || '').trim() || 'Lyrics Animation';
     const framesPerChunk = clampInt($('framesPerWord').value, 1, 120, 10);
     const shortWords = $('shortWords').value
       .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -109,6 +146,9 @@ async function generate() {
 
     const scene = xmlDoc.querySelector('scene');
     if (!scene) throw new Error('Не найден элемент <scene>');
+
+    // Имя проекта применяем сразу при сборке
+    scene.setAttribute('title', projectName);
 
     const fps = parseInt(scene.getAttribute('fps'), 10) || 30;
     const frameMs = 1000 / fps;
@@ -168,12 +208,8 @@ async function generate() {
     }
 
     // --- 7. Сериализация ---
-    const serializer = new XMLSerializer();
-    let out = serializer.serializeToString(xmlDoc);
-    if (!/^<\?xml/.test(out)) {
-      out = "<?xml version='1.0' encoding='UTF-8' ?>\n" + out;
-    }
-    generatedBlob = new Blob([out], { type: 'application/xml' });
+    generatedBlob = serializeToBlob(xmlDoc);
+    lastXmlDoc = xmlDoc;
 
     // --- 8. UI ---
     renderPreview(layers);
@@ -181,19 +217,19 @@ async function generate() {
     $('downloadBtn').disabled = false;
 
     const usedDefault = !fileInput.files.length;
-    status.textContent =
-      `Готово: ${layers.length} слоёв, ${(totalTime / 1000).toFixed(2)} с.` +
-      (usedDefault ? ' (использован встроенный шаблон)' : '');
-    status.className = 'status success';
+    showStatus(
+      `Готово: ${layers.length} слоёв, ${(totalTime / 1000).toFixed(2)} с. Проект: «${projectName}».` +
+      (usedDefault ? ' (встроенный шаблон)' : ''),
+      'success'
+    );
   } catch (err) {
     console.error(err);
-    status.textContent = 'Ошибка: ' + err.message;
-    status.className = 'status error';
+    showStatus('Ошибка: ' + err.message, 'error');
   }
 }
 
 // ------------------------------------------------------------------
-// Разбиение слов на чанки: короткое слово + следующее за ним
+// Разбиение слов на чанки
 // ------------------------------------------------------------------
 function splitIntoChunks(words, shortWords) {
   const chunks = [];
@@ -254,6 +290,21 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function serializeToBlob(doc) {
+  const serializer = new XMLSerializer();
+  let out = serializer.serializeToString(doc);
+  if (!/^<\?xml/.test(out)) {
+    out = "<?xml version='1.0' encoding='UTF-8' ?>\n" + out;
+  }
+  return new Blob([out], { type: 'application/xml' });
+}
+
+function showStatus(msg, type = 'info') {
+  const s = $('status');
+  s.textContent = msg;
+  s.className = 'status ' + type;
+}
+
 // ------------------------------------------------------------------
 // Предпросмотр
 // ------------------------------------------------------------------
@@ -278,7 +329,7 @@ function renderPreview(layers) {
 }
 
 // ------------------------------------------------------------------
-// Скачивание сгенерированного
+// Скачивание
 // ------------------------------------------------------------------
 function download() {
   if (!generatedBlob) return;
