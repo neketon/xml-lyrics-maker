@@ -32,6 +32,18 @@
       <textarea id="lyrics" rows="10" placeholder="потому что любовь повсюду:&#10;в каждой клетке, в каждом звуке&#10;в истошном крике, в водосточном&#10;любви нет только в фильмах про&#10;любовь, твою любовь"></textarea>
     </section>
 
+    <section class="card">
+      <label for="projectName">3. Имя проекта XML</label>
+      <div class="inline-row">
+        <input type="text" id="projectName" value="Шаблон" placeholder="Lyrics Animation" />
+        <button type="button" id="applyNameBtn" class="btn-secondary">Применить</button>
+      </div>
+      <p class="hint">
+        Название проекта в Alight Motion (атрибут <code>title</code> у <code>&lt;scene&gt;</code>).
+        Кнопка «Применить» работает и после генерации — без полной пересборки.
+      </p>
+    </section>
+
     <section class="card options">
       <div>
         <label for="framesPerWord">Кадров на чанк</label>
